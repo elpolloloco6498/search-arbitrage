@@ -18,7 +18,7 @@ import math
 from searchCycles import *
 
 def load_static_data_into_file(exchange):
-    markets = exchange.fetch_markets()[:100]
+    markets = exchange.fetch_markets()[:500]
     # select markets that are active and type=spot
     data = {"pair": [], "base": [], "quote": []}
     # fill the dataframe with market data
@@ -59,6 +59,7 @@ def read_data(path):
 def get_price_data(exchange, df):
     symbols = df.loc[:, "pair"].tolist()
     tickers = exchange.fetch_tickers(symbols)
+    #print(tickers)
     bid = []
     ask = []
     for symbol in symbols:
@@ -90,8 +91,8 @@ def generate_adjacency_matrix(df, symbol_to_id):
         base, quote = df.loc[i, "base"], df.loc[i, "quote"]
         ask, bid = df.loc[i, "ask"], df.loc[i, "bid"]
         id_base, id_quote = symbol_to_id[base], symbol_to_id[quote]
-        adjacency_matrix[id_base][id_quote] = float(bid)
-        adjacency_matrix[id_quote][id_base] = 1/float(ask)
+        adjacency_matrix[id_base][id_quote] = float(ask)
+        adjacency_matrix[id_quote][id_base] = 1/float(bid)
     return np.matrix(adjacency_matrix, dtype=float)
 
 
@@ -114,28 +115,32 @@ def transform_matrix(matrix):
     return vec_func(matrix)
 
 
-def find_negative_cycles(graph):
-    #label_nodes = {v: k for k, v in symbol_to_id.items()}
-    #directed_graph = graph.to_directed()
-    """
-    simple_cycles = list(nx.simple_cycles(directed_graph))
-    for cycle in simple_cycles:
-        if len(cycle) > 2:
-            for node in cycle:
-                print(label_nodes[node], end=" ")
-            print("\n")"""
+def calculate_arbitrage(cycle, g):
+    sum_weights_cycle = sum([g[cycle[i]][cycle[i+1]]["weight"] for i in range(len(cycle)-1)])
+    return math.exp(-sum_weights_cycle)
 
 
-def search_surface_rate_arbitrage(graph):
+def pair_cycle_from_id_cycle(cycle, id_to_symbol):
+    return [id_to_symbol[cycle[i]] for i in range(len(cycle))]
+
+
+def search_surface_rate_arbitrage(graph, symbol_to_id):
     if nx.negative_edge_cycle(graph):
         print("Arbitrage opportunity FOUND")
         # find all cycles
         unique_cycles = all_negative_cycles(graph)
-        print(unique_cycles)
-        # display symbols of possible arbitrage coins
+        unique_cycles = list(filter(lambda cycle_arb: len(cycle_arb) >= 4, unique_cycles)) # filter cycles under 3
         # calculate arbitrage
+        label_nodes = {v: k for k, v in symbol_to_id.items()}
+        for cycle in unique_cycles:
+            arb = calculate_arbitrage(cycle, graph)
+            pair_cycle = pair_cycle_from_id_cycle(cycle, label_nodes)
+            profit_perc = (arb-1)*100
+            print(f"{pair_cycle} returns : {profit_perc}%")
+
     else:
         print("No arbitrage opportunities")
+        return None
 
 
 def search_deep_orderbook_validated_arbitrage():
@@ -149,32 +154,18 @@ def main():
 
     load_static_data_into_file(exch)  # load static data from the API
     df = read_data("./market_data.csv")  # read the stored data
-    symbol_to_id = symbol_to_matrix_id(df)  # establish a correspondance relationship between the symbol and matrix ID
+    symbol_to_id = symbol_to_matrix_id(df)  # establish a correspondance relationship between the symbol and matrix
     get_price_data(exch, df)  # gather price information from the API
+
     matrix = generate_adjacency_matrix(df, symbol_to_id)  # generate the adjacency matrix of the problem
     transformed_matrix = transform_matrix(matrix)
     print(transformed_matrix)
 
     graph = nx.from_numpy_matrix(transformed_matrix, create_using=nx.DiGraph)  # creating the graph representation via the adjacency matrix
-    #search_surface_rate_arbitrage(graph)
-    #print(symbol_to_id)
+    search_surface_rate_arbitrage(graph, symbol_to_id)
 
     # graphical representation
-    plot_market_graph(graph, symbol_to_id)
+    #plot_market_graph(graph, symbol_to_id)
 
 if __name__ == "__main__":
     main()
-
-
-"""
-# search cycles in the graph
-#cycle = nx.find_negative_cycle(graph, 0)
-
-H = graph.to_directed()
-simple_cycles = list(nx.simple_cycles(H))
-for cycle in simple_cycles:
-    if len(cycle) > 2:
-        for node in cycle:
-            print(labelNodes[node], end=" ")
-        print("\n")
-"""
