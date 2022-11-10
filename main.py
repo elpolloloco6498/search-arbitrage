@@ -113,36 +113,6 @@ def transform_matrix(matrix):
     return vec_func(matrix)
 
 
-def getW(edge):
-    return edge[2]['weight']
-
-
-def getNegativeCycle(g):
-    n = len(g.nodes())
-    edges = list(g.edges().data())
-    d = np.ones(n) * 10000
-    p = np.ones(n)*-1
-    x = -1
-    for i in range(n):
-        for e in edges:
-            if d[int(e[0])] + getW(e) < d[int(e[1])]:
-                d[int(e[1])] = d[int(e[0])] + getW(e)
-                p[int(e[1])] = int(e[0])
-                x = int(e[1])
-    if x == -1:
-        print("No negative cycle")
-        return None
-    for i in range(n):
-        x = p[int(x)]
-    cycle = []
-    v = x
-    while True:
-        cycle.append(str(int(v)))
-        if v == x and len(cycle) > 1:
-            break
-        v = p[int(v)]
-    return list(reversed(cycle))
-
 def find_negative_cycles(graph):
     #label_nodes = {v: k for k, v in symbol_to_id.items()}
     #directed_graph = graph.to_directed()
@@ -166,45 +136,22 @@ def search_deep_orderbook_validated_arbitrage():
 
 def main():
     # TODO calculate run time and print it
-    """
     np.set_printoptions(precision=8, suppress=True)
     exch = ccxt.binance()
+
     #load_static_data_into_file(exch)  # load static data from the API
     df = read_data("./market_data.csv")  # read the stored data
     symbol_to_id = symbol_to_matrix_id(df)  # establish a correspondance relationship between the symbol and matrix ID
     get_price_data(exch, df)  # gather price information from the API
     matrix = generate_adjacency_matrix(df, symbol_to_id)  # generate the adjacency matrix of the problem
-    """
-    #potato:0 carrot:1 lettuce:2
-    matrix_food_market = np.matrix([
-        [0, 0.5, 0.5],
-        [2, 0, 0.5],
-        [2, 2, 0]
-    ])
-    #pound:0, dollar:1, yen:2
-    matrix_forex_market = np.matrix([
-        [0, 1/0.8, 100],
-        [0.8, 0, 1/0.013],
-        [1/100, 0.013, 0]
-    ])
-    print(matrix_forex_market)
-    transformed_matrix = transform_matrix(matrix_forex_market)
+    transformed_matrix = transform_matrix(matrix)
     print(transformed_matrix)
-    print(transformed_matrix.shape)
-    sum = transformed_matrix[1,0]+transformed_matrix[0,2]+transformed_matrix[2,1]
-    print(sum)
 
-    graph = nx.from_numpy_matrix(matrix_forex_market)  # creating the graph representation via the adjacency matrix
-    #print(getNegativeCycle(graph))
-    print("negative cycle : ", nx.negative_edge_cycle(graph))
-    cycle = nx.find_negative_cycle(graph, 0)
-    print("negative cycle 2: ", cycle)
+    graph = nx.from_numpy_matrix(transformed_matrix)  # creating the graph representation via the adjacency matrix
+    #TODO implement function to find negative cycles in a graph
+    print(nx.find_negative_cycle(graph, 0))
+
     #plot_market_graph(graph, symbol_to_id)
-
-    # draw graph test
-    nx.draw(graph, node_size=200, node_color='lightgray', edgecolors='red',
-            font_size=10, width=0.5)
-    plt.show()
 
 if __name__ == "__main__":
     main()
