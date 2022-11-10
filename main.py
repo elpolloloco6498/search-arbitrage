@@ -15,9 +15,10 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import pandas as pd
 import math
+from searchCycles import *
 
 def load_static_data_into_file(exchange):
-    markets = exchange.fetch_markets()[:200]
+    markets = exchange.fetch_markets()[:100]
     # select markets that are active and type=spot
     data = {"pair": [], "base": [], "quote": []}
     # fill the dataframe with market data
@@ -89,8 +90,8 @@ def generate_adjacency_matrix(df, symbol_to_id):
         base, quote = df.loc[i, "base"], df.loc[i, "quote"]
         ask, bid = df.loc[i, "ask"], df.loc[i, "bid"]
         id_base, id_quote = symbol_to_id[base], symbol_to_id[quote]
-        adjacency_matrix[id_base][id_quote] = ask  # the rate has to be changed using ticker information
-        adjacency_matrix[id_quote][id_base] = 1/bid
+        adjacency_matrix[id_base][id_quote] = float(bid)
+        adjacency_matrix[id_quote][id_base] = 1/float(ask)
     return np.matrix(adjacency_matrix, dtype=float)
 
 
@@ -116,7 +117,6 @@ def transform_matrix(matrix):
 def find_negative_cycles(graph):
     #label_nodes = {v: k for k, v in symbol_to_id.items()}
     #directed_graph = graph.to_directed()
-    print(getNegativeCycle(graph))
     """
     simple_cycles = list(nx.simple_cycles(directed_graph))
     for cycle in simple_cycles:
@@ -126,8 +126,16 @@ def find_negative_cycles(graph):
             print("\n")"""
 
 
-def search_surface_rate_arbitrage():
-    pass
+def search_surface_rate_arbitrage(graph):
+    if nx.negative_edge_cycle(graph):
+        print("Arbitrage opportunity FOUND")
+        # find all cycles
+        unique_cycles = all_negative_cycles(graph)
+        print(unique_cycles)
+        # display symbols of possible arbitrage coins
+        # calculate arbitrage
+    else:
+        print("No arbitrage opportunities")
 
 
 def search_deep_orderbook_validated_arbitrage():
@@ -139,7 +147,7 @@ def main():
     np.set_printoptions(precision=8, suppress=True)
     exch = ccxt.binance()
 
-    #load_static_data_into_file(exch)  # load static data from the API
+    load_static_data_into_file(exch)  # load static data from the API
     df = read_data("./market_data.csv")  # read the stored data
     symbol_to_id = symbol_to_matrix_id(df)  # establish a correspondance relationship between the symbol and matrix ID
     get_price_data(exch, df)  # gather price information from the API
@@ -147,11 +155,12 @@ def main():
     transformed_matrix = transform_matrix(matrix)
     print(transformed_matrix)
 
-    graph = nx.from_numpy_matrix(transformed_matrix)  # creating the graph representation via the adjacency matrix
-    #TODO implement function to find negative cycles in a graph
-    print(nx.find_negative_cycle(graph, 0))
+    graph = nx.from_numpy_matrix(transformed_matrix, create_using=nx.DiGraph)  # creating the graph representation via the adjacency matrix
+    #search_surface_rate_arbitrage(graph)
+    #print(symbol_to_id)
 
-    #plot_market_graph(graph, symbol_to_id)
+    # graphical representation
+    plot_market_graph(graph, symbol_to_id)
 
 if __name__ == "__main__":
     main()
